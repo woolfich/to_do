@@ -1,4 +1,5 @@
 import type { Task, Reminder } from '../types';
+import { useUIStore } from '../stores/uiStore';
 
 export type NotificationPermission = 'granted' | 'denied' | 'default' | 'unsupported';
 
@@ -22,12 +23,31 @@ class NotificationService {
     }
   }
 
-  async showNotification(task: Task, reminder: Reminder): Promise<void> {
+  /**
+   * Show a reminder notification.
+   *
+   * Two channels:
+   *  1. In-app modal (always, when app is in foreground). This is the primary UX
+   *     and works regardless of OS-level notification permission.
+   *  2. System Web Notification (only if permission is granted). Works even
+   *     when the app is in the background.
+   */
+  showNotification(task: Task, reminder: Reminder): void {
+    // 1. Always queue an in-app notification. The ReminderModal component
+    //    mounted in App.tsx reads this queue and renders the visible modal.
+    useUIStore.getState().enqueueReminderNotification({
+      id: crypto.randomUUID(),
+      task,
+      reminder,
+      triggeredAt: new Date().toISOString(),
+    });
+
+    // 2. Additionally fire a system notification if the browser allows it.
+    //    This is what makes reminders work when the app is in the background
+    //    or the tab is not focused.
     if (!this.isSupported() || Notification.permission !== 'granted') return;
 
-    const timeStr = task.scheduledTime
-      ? ` в ${task.scheduledTime}`
-      : '';
+    const timeStr = task.scheduledTime ? ` в ${task.scheduledTime}` : '';
     const dateStr = task.scheduledDate;
 
     const options: NotificationOptions = {
@@ -41,21 +61,50 @@ class NotificationService {
 
     try {
       const notification = new Notification(`📋 ${task.title}`, options);
-      
+
       notification.onclick = () => {
         window.focus();
+        useUIStore.getState().openTaskDetails(task.id);
         notification.close();
       };
 
       // Auto-close after 10 seconds
       setTimeout(() => notification.close(), 10000);
     } catch (error) {
-      console.error('Failed to show notification:', error);
+      console.error('Failed to show system notification:', error);
     }
   }
 
-  async showTestNotification(): Promise<boolean> {
-    if (!this.isSupported() || Notification.permission !== 'granted') return false;
+  showTestNotification(): boolean {
+    // Always show an in-app test notification
+    const fakeTask: Task = {
+      id: '__test__',
+      title: 'Тестовое уведомление',
+      description: 'Так будут выглядеть напоминания о задачах.',
+      scheduledDate: new Date().toISOString().slice(0, 10),
+      scheduledTime: null,
+      completed: false,
+      completedAt: null,
+      priority: 'normal',
+      recurrence: { type: 'none' },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    const fakeReminder: Reminder = {
+      id: '__test_reminder__',
+      taskId: '__test__',
+      triggerDateTime: new Date().toISOString(),
+      fired: true,
+    };
+    useUIStore.getState().enqueueReminderNotification({
+      id: crypto.randomUUID(),
+      task: fakeTask,
+      reminder: fakeReminder,
+      triggeredAt: new Date().toISOString(),
+    });
+
+    // Also try a system notification if permission is granted
+    if (!this.isSupported() || Notification.permission !== 'granted') return true;
 
     try {
       const notification = new Notification('✅ Уведомления работают!', {
@@ -65,7 +114,7 @@ class NotificationService {
       setTimeout(() => notification.close(), 5000);
       return true;
     } catch {
-      return false;
+      return true; // in-app modal was still queued, so functionally it works
     }
   }
 }

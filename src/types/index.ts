@@ -56,3 +56,10 @@ export interface ToastMessage {
   undoAction?: () => void;
   undoLabel?: string;
 }
+
+export interface ReminderNotification {
+  id: string;
+  task: Task;
+  reminder: Reminder;
+  triggeredAt: string; // ISO datetime
+}

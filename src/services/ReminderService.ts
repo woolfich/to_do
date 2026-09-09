@@ -24,8 +24,6 @@ class ReminderService {
   }
 
   async checkReminders(): Promise<void> {
-    if (notificationService.getPermission() !== 'granted') return;
-
     const now = new Date().toISOString();
     const pendingReminders = await ReminderRepository.getPending(now);
 
@@ -36,7 +34,10 @@ class ReminderService {
         continue;
       }
 
-      await notificationService.showNotification(task, reminder);
+      // Fire-and-forget. notificationService now drives both the in-app
+      // modal (always) and the system Web Notification (when permitted),
+      // so we no longer early-return when permission is missing.
+      notificationService.showNotification(task, reminder);
       await ReminderRepository.markFired(reminder.id);
     }
   }

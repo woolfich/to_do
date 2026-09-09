@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { View, ToastMessage } from '../types';
+import type { View, ToastMessage, ReminderNotification } from '../types';
 import { getTodayStr } from '../utils/date';
 
 interface UIState {
@@ -11,6 +11,8 @@ interface UIState {
   toasts: ToastMessage[];
   installPromptEvent: Event | null;
   showInstallBanner: boolean;
+  /** Queue of in-app reminder notifications. First item is the one currently shown. */
+  reminderNotifications: ReminderNotification[];
 
   setView: (view: View) => void;
   setSelectedDate: (date: string) => void;
@@ -22,6 +24,8 @@ interface UIState {
   removeToast: (id: string) => void;
   setInstallPrompt: (event: Event | null) => void;
   setShowInstallBanner: (show: boolean) => void;
+  enqueueReminderNotification: (notification: ReminderNotification) => void;
+  dismissReminderNotification: (id: string) => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -33,16 +37,17 @@ export const useUIStore = create<UIState>((set) => ({
   toasts: [],
   installPromptEvent: null,
   showInstallBanner: false,
+  reminderNotifications: [],
 
   setView: (view) => set({ currentView: view }),
   setSelectedDate: (date) => set({ selectedDate: date }),
-  
+
   openTaskDetails: (taskId) => set({ selectedTaskId: taskId, isTaskDetailsOpen: true }),
   closeTaskDetails: () => set({ selectedTaskId: null, isTaskDetailsOpen: false }),
-  
+
   openAddTask: () => set({ isAddTaskOpen: true }),
   closeAddTask: () => set({ isAddTaskOpen: false }),
-  
+
   addToast: (toast) => {
     const id = crypto.randomUUID();
     set((state) => ({
@@ -55,11 +60,23 @@ export const useUIStore = create<UIState>((set) => ({
       }));
     }, 5000);
   },
-  
+
   removeToast: (id) => set((state) => ({
     toasts: state.toasts.filter((t) => t.id !== id),
   })),
 
   setInstallPrompt: (event) => set({ installPromptEvent: event }),
   setShowInstallBanner: (show) => set({ showInstallBanner: show }),
+
+  enqueueReminderNotification: (notification) => set((state) => {
+    // Prevent duplicate notifications for the same reminder
+    if (state.reminderNotifications.some((n) => n.reminder.id === notification.reminder.id)) {
+      return state;
+    }
+    return { reminderNotifications: [...state.reminderNotifications, notification] };
+  }),
+
+  dismissReminderNotification: (id) => set((state) => ({
+    reminderNotifications: state.reminderNotifications.filter((n) => n.id !== id),
+  })),
 }));

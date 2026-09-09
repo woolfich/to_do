@@ -10,6 +10,7 @@ import { TaskDetails } from './components/TaskDetails';
 import { CalendarView } from './components/CalendarView';
 import { SettingsView } from './components/SettingsView';
 import { ToastContainer } from './components/ToastContainer';
+import { ReminderModal } from './components/ReminderModal';
 import { Plus, Calendar, Settings, ChevronDown, ChevronUp, CheckCircle2, AlertCircle, ListTodo } from 'lucide-react';
 
 // Keyboard shortcuts hook
@@ -371,6 +372,7 @@ export default function App() {
       <TaskForm />
       <TaskDetails />
       <ToastContainer />
+      <ReminderModal />
     </div>
   );
 }
